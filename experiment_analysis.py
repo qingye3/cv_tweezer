@@ -65,6 +65,8 @@ class SD_Protocol:
         contours, garbage = cv2.findContours(temp, cv2.cv.CV_RETR_LIST, cv2.cv.CV_CHAIN_APPROX_NONE)
         circles2 = map(cv2.minEnclosingCircle, contours)
         (x, y), r = min(circles2, key = lambda x: abs(r-x[1]))
+        frame.center = (x,y)
+        frame.radius = r
 
         x, y, r = map(lambda m: int(round(m)), [x,y,r])
 
@@ -72,8 +74,6 @@ class SD_Protocol:
         SD_Protocol.draw_circle(subtracted_image, x, y, r)
         self.save(subtracted_image, "circle", 3)
 
-        frame.center = (x,y)
-        frame.radius = r
         frame.free()
         del temp_image
         temp_image = None
@@ -116,6 +116,28 @@ class SD_Protocol:
     @staticmethod
     def choose_first_circle(circles):
         return circles[0, :].tolist()[0]
+
+def plotsd(experiments):
+    size = len(experiments)
+    plt.figure(1)
+    plt.title("SD vs Blocking Level")
+    plt.xlabel("Blocking Level")
+    plt.ylabel("SD")
+    plt.plot(range(size), [exp.x_sd for exp in experiments], '-b', label='sd of x')
+    plt.plot(range(size), [exp.y_sd for exp in experiments], '-r', label='sd of y')
+    plt.savefig("../results/sd_vs_blocking.png")
+
+def plotscatter(experiments, dist = 15):
+    size = len(experiments)
+    colors = ['r', 'b', 'g', 'k', 'y', 'c', 'm', 'r' ]
+    plt.figure(2)
+    plt.title("Scatter")
+    for i, exp in enumerate(experiments):
+        x = [e_x + i * dist for e_x in exp.x]
+        y = [e_y + i * dist for e_y in exp.y]
+        plt.scatter(x, y, color = colors[i], s=2)
+    plt.savefig("../results/scatter.png")
+    
 
     
 if __name__ == "__main__":
