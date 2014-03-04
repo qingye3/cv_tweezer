@@ -1,6 +1,6 @@
 import cv2
 import cv2.cv
-import matplotlib.plot as plt
+import matplotlib.pyplot as plt
 import numpy as np
 import os
 import re
@@ -14,7 +14,7 @@ class Frame:
     def read(self):
         self.image = cv2.imread(path, cv2.IMREAD_GRAYSCALE)
     def obtain_center(self):
-        protocol(self)
+        self.protocol(self)
     def save(self, new_path = 'default'):
         if new_path == 'default':
             cv2.imwrite(self.path, self.image)
@@ -31,7 +31,7 @@ class Animation:
         self.y = []
         self.x_sd = None
         self.y_sd = None
-    def import(self, path, protocol):
+    def import_frame(self, path, protocol):
         self.frames.append(Frame(path, protocol))
     def import_seq(self, path, regex, protocol):
         for file_name in os.listdir(path):
@@ -69,7 +69,6 @@ if __name__ == "__main__":
     cv2.imwrite("result.bmp", result)
     #ret, result2 = cv2.threshold(result, 30, 255, cv2.THRESH_BINARY)
     result2 = cv2.adaptiveThreshold(result, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 51, -10)
-    #result2 = cv2.morphologyEx(result2, cv2.MORPH_CLOSE, kernal)
     cv2.imwrite("result2.bmp", result2)
     circles = cv2.HoughCircles(result2, cv2.cv.CV_HOUGH_GRADIENT, 1, 5, param1=50, param2=20, minRadius = 10, maxRadius = 60)
     result2 = cv2.cvtColor(result2, cv2.COLOR_GRAY2RGB)
