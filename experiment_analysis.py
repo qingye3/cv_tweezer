@@ -6,6 +6,8 @@ import os
 import re
 from cv_tweezer import Frame, Animation
 
+micro_per_pixel = 0.06015
+
 def get_save_path(path, note = "result"):
     abspath = os.path.abspath(path)
     splitpath = abspath.split('/')
@@ -13,8 +15,7 @@ def get_save_path(path, note = "result"):
         os.makedirs('../results/'+splitpath[-2])
     except OSError:
         pass
-    retpath = "/".join(splitpath[-2:])
-    retpath = retpath[:-4] + "_%s" %note + ".bmp"
+    retpath = splitpath[-2] + "/%s_"%note + splitpath[-1]
     retpath = "../results/" + retpath
     return retpath
 
@@ -60,9 +61,16 @@ class SD_Protocol:
             grace +=1
         circles = np.uint16(np.around(circles))
         x, y, r = self.circle_chooser(circles)
+        temp = np.copy(temp_image)
+        temp = SD_Protocol.toRGB(temp)
+        SD_Protocol.draw_circle(temp, x, y, r)
+        self.save(temp, "find_circle", 3)
 
         temp = np.copy(temp_image)
-        contours, garbage = cv2.findContours(temp, cv2.cv.CV_RETR_LIST, cv2.cv.CV_CHAIN_APPROX_NONE)
+        contours, heri= cv2.findContours(temp, cv2.cv.CV_RETR_LIST, cv2.cv.CV_CHAIN_APPROX_NONE)
+        temp = np.uint16(np.zeros((480, 640)))
+        cv2.drawContours(temp, contours, -1, 255, thickness = 2)
+        self.save(temp, "contour", 4)
         circles2 = map(cv2.minEnclosingCircle, contours)
         (x, y), r = min(circles2, key = lambda x: abs(r-x[1]))
         frame.center = (x,y)
@@ -72,7 +80,7 @@ class SD_Protocol:
 
         subtracted_image= SD_Protocol.toRGB(subtracted_image)
         SD_Protocol.draw_circle(subtracted_image, x, y, r)
-        self.save(subtracted_image, "circle", 3)
+        self.save(subtracted_image, "circle", 5)
 
         frame.free()
         del temp_image
@@ -121,28 +129,52 @@ def plotsd(experiments):
     size = len(experiments)
     plt.figure(1)
     plt.title("SD vs Blocking Level")
-    plt.xlabel("Blocking Level")
-    plt.ylabel("SD")
-    plt.plot(range(size), [exp.x_sd for exp in experiments], '-b', label='sd of x')
-    plt.plot(range(size), [exp.y_sd for exp in experiments], '-r', label='sd of y')
+    plt.xlabel("Blocking Level %")
+    plt.ylabel("SD (um)")
+    plt.plot([x*10 for x in range(size)], [exp.x_sd*micro_per_pixel for exp in experiments], '-b', label='sd of x')
+    plt.plot([x*10 for x in range(size)], [exp.y_sd*micro_per_pixel for exp in experiments], '-r', label='sd of y')
     plt.savefig("../results/sd_vs_blocking.png")
 
-def plotscatter(experiments, dist = 15):
+def plotk(experiments):
+    size = len(experiments)
+    plt.figure(3)
+    plt.title("Spring Constant vs Blocking Level")
+    plt.xlabel("Blocking Level %")
+    plt.ylabel("Spring Constant (10^(-7) N/m)")
+    plt.plot([x*10 for x in range(size)], [1.3806e-4 * 300 / ((exp.x_sd*micro_per_pixel)**2) for exp in experiments], '-b', label='sd of x')
+    plt.plot([x*10 for x in range(size)], [1.3806e-4 * 300 / ((exp.y_sd*micro_per_pixel)**2) for exp in experiments], '-r', label='sd of y')
+    plt.savefig("../results/k_vs_blocking.png")
+
+def plotscatter(experiments, dist = 25):
     size = len(experiments)
     colors = ['r', 'b', 'g', 'k', 'y', 'c', 'm', 'r' ]
     plt.figure(2)
     plt.title("Scatter")
+    plt.xlabel("x (um)")
+    plt.ylabel("y (um)")
     for i, exp in enumerate(experiments):
-        x = [e_x + i * dist for e_x in exp.x]
-        y = [e_y + i * dist for e_y in exp.y]
+        x = [(e_x + i * dist)*(micro_per_pixel) for e_x in exp.x]
+        y = [(e_y + i * dist)*(micro_per_pixel) for e_y in exp.y]
         plt.scatter(x, y, color = colors[i], s=2)
     plt.savefig("../results/scatter.png")
-    
+
+def printtofile(experiments):
+    file_o = open("../results/results.txt", "w")
+    file_o.write("Standard Deviations X Y:\n\n")
+    for i, exp in enumerate(experiments):
+        file_o.write("Blocking%-3d  %10.5f   %10.5f\n"%(i, exp.x_sd*micro_per_pixel, exp.y_sd*micro_per_pixel))
+    file_o.write("\n\n"+"="*40)
+    file_o.write("\n\nBead locations:\n\n")
+    for i, exp in enumerate(experiments):
+        file_o.write("Blocking%d:\n" %i)
+        for x, y in zip(exp.x, exp.y):
+            file_o.write("%10.5f %10.5f\n"%(x*micro_per_pixel,y*micro_per_pixel))
+    file_o.close()
 
     
 if __name__ == "__main__":
-    background = cv2.imread("background20.bmp", cv2.IMREAD_GRAYSCALE)
-    protocol = SD_Protocol(background, saved_results = range(4))
+    background = cv2.imread("../background20.bmp", cv2.IMREAD_GRAYSCALE)
+    protocol = SD_Protocol(background, saved_results = range(6))
     experiments = []
     for i in range(8):
         experiment = Animation()
@@ -151,6 +183,8 @@ if __name__ == "__main__":
         experiments.append(experiment)
     plotscatter(experiments)
     plotsd(experiments)
+    plotk(experiments)
+    printtofile(experiments)
     
 
 
